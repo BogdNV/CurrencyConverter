@@ -1,7 +1,3 @@
 namespace CurrencyConverter.DTO;
 
-public record CurrencyResponse
-{
-    public string Currency { get; set; }
-    public double Amount { get; set; }
-}
+public record CurrencyResponse(string Currency, decimal Amount);

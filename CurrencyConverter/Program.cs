@@ -28,10 +28,16 @@ public class Program
 
         app.MapGet("/api/currencies", async (CurrencyService service, string currency) =>
         {
+            if(!currency.IsValidCurrencyCode())
+                return Results.BadRequest(new {Message = "Неверный код валюты"});
             try
             {
                 API_Obj? apiObj = await service.GetCurrency(currency);
                 return Results.Json(apiObj);
+            }
+            catch (ArgumentException e)
+            {
+                return Results.BadRequest(new {Message = e.Message});
             }
             catch (Exception e)
             {
@@ -39,18 +45,24 @@ public class Program
             }
         });
 
-        app.MapGet("/api/convert", async (CurrencyService service, string from, string to, double amount) =>
+        app.MapGet("/api/convert", async (CurrencyService service, string from, string to, decimal amount) =>
         {
+            if(amount <= 0)
+                return Results.BadRequest(new {Message = "Сумма должна быть положительной"});
+            if(!from.IsValidCurrencyCode() || !to.IsValidCurrencyCode())
+                return Results.BadRequest(new {Message = "Неверный код валюты"});
             try
             {
                 var cur = await service.GetCurrency(from);
-                if (cur != null)
-                {
-                    var convertCurrency = amount * cur.Rates.GetRate(to);
-                    return Results.Json(new CurrencyResponse() {Currency = to, Amount =  convertCurrency});
-                }
-                else
-                    return Results.NotFound(new { Message = $"Could not find currency {to}" });
+                
+                var convertCurrency = amount * cur?.Rates?.GetRate(to) 
+                                      ?? throw new InvalidOperationException("Тарифы не найдены");
+                return Results.Json(new CurrencyResponse(to, convertCurrency));
+                
+            }
+            catch (ArgumentException e)
+            {
+                return Results.BadRequest(new {Message = e.Message});
             }
             catch (Exception e)
             {

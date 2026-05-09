@@ -17,11 +17,11 @@ public class CurrencyController : ControllerBase
         _currencyService = currencyService;
     }
     
-    [HttpGet("{cur}")]
-    public async Task<IActionResult> GetAll(string cur, CancellationToken cancellationToken)
+    [HttpGet("{currency}")]
+    public async Task<IActionResult> GetAll(string currency, CancellationToken cancellationToken)
     {
         IEnumerable<Currency?>? rates = await _currencyService
-            .GetCurrency("/v2/rates", $"base={cur}", cancellationToken);
+            .GetCurrency("/v2/rates", $"base={currency}", cancellationToken);
         return Ok(rates);
     }
 

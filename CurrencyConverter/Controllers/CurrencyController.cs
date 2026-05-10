@@ -20,21 +20,19 @@ public class CurrencyController : ControllerBase
     [HttpGet("{currency}")]
     public async Task<IActionResult> GetAll(string currency, CancellationToken cancellationToken)
     {
-        IEnumerable<Currency?>? rates = await _currencyService
-            .GetCurrency("/v2/rates", $"base={currency}", cancellationToken);
+        var rates = await _currencyService
+            .GetCurrencyByBaseAsync("/v2/rates", currency, cancellationToken);
         return Ok(rates);
     }
 
     [HttpGet("convert/{from}")]
     public async Task<IActionResult> Convert(string from, [Required][FromQuery]string to, [Required][FromQuery]decimal amount, CancellationToken cancellationToken)
     {
-        IEnumerable<Currency?>? rates = await _currencyService
-            .GetCurrency("/v2/rates", $"base={from}&quotes={to}", cancellationToken);
-        if (rates == null)
-            return NotFound();
-        if (amount <= 0)
-            return BadRequest(new { message = "Amount must be greater than zero." });
-        
-        return Ok(_currencyService.Convert(rates, amount, cancellationToken));
+        var rates = await _currencyService
+            .GetCurrencyByBaseAsync("/v2/rates", from, cancellationToken);
+        var filterRates = _currencyService.FilterByQuotes(rates, to);
+
+        var result = _currencyService.Convert(filterRates, amount, cancellationToken).ToList();
+        return Ok(result);
     }
 }

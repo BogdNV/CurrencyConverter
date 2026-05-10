@@ -17,23 +17,33 @@ public class CurrencyService
         _httpClient = httpClient;
     }
 
-    public async Task<IEnumerable<Currency?>?> GetCurrency(string path, string query, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Currency>> GetCurrencyByBaseAsync(string path, string @base, CancellationToken ct = default)
     {
-        IEnumerable<Currency?>? rates = await _httpClient.GetFromJsonAsAsyncEnumerable<Currency>($"{path}?{query}").ToArrayAsync();
-        foreach (var cur in rates)
+        var cacheKey = $"base={@base.ToUpperInvariant()}";
+        return await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
-            string key = $"{cur?.Base}_{cur?.Quote}";
-            await _cache.GetOrCreateAsync(key, async entry =>
-            {
-                entry.SlidingExpiration = TimeSpan.FromHours(1);
-                _logger.LogInformation("Кэш обновлен для {Base}", key);
-                return cur;
-            });
-        }
-        return rates;
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
+
+            var response = await _httpClient.GetFromJsonAsync<Currency[]>($"{path}?{cacheKey}");
+            if (response is null || response.Length == 0)
+                throw new InvalidOperationException($"Нет данных для валюты {@base}");
+            
+            _logger.LogInformation("Кэш обновлен: {Key} ({Count} курсов)",  @base, response.Length);
+            return response.ToList().AsReadOnly();
+        }) ?? throw new InvalidOperationException("Неудалось получить данные");
     }
 
-    public IEnumerable<CurrencyResponse> Convert(IEnumerable<Currency?> rates, decimal amount, CancellationToken ct = default)
+    public IEnumerable<Currency> FilterByQuotes(IEnumerable<Currency> currencies, string targetQuotes)
+    {
+        if(string.IsNullOrWhiteSpace(targetQuotes))
+            return currencies;
+        var quotes = targetQuotes.Split(",").Select(q => q.ToUpperInvariant()).ToArray();
+
+        return currencies
+            .Where(c => quotes.Contains(c.Quote));
+    }
+
+    public IEnumerable<CurrencyResponse> Convert(IEnumerable<Currency> rates, decimal amount, CancellationToken ct = default)
     {
         return rates.Select(r => new CurrencyResponse(r.Base, amount, r.Quote, r.Rate * amount));
     }

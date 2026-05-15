@@ -13,13 +13,14 @@ public class Program
         builder.Services.AddHttpClient<CurrencyService>(r => r.BaseAddress = new Uri(_api));
         builder.Services.AddMemoryCache();
 
-        builder.Services.AddOpenApi();
+        builder.Services.AddSwaggerGen();
 
         WebApplication app = builder.Build();
 
         if (app.Environment.IsDevelopment())
         {
-            app.MapOpenApi();
+            app.UseSwagger();
+            app.UseSwaggerUI();
         }
         
         app.MapControllers();
